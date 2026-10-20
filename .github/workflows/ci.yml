@@ -1,0 +1,23 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests with PostgreSQL and RabbitMQ
+        run: docker compose -f compose.test.yaml up --build --abort-on-container-exit --exit-code-from tests
+      - name: Logs
+        if: failure()
+        run: docker compose -f compose.test.yaml logs --no-color
+      - name: Stop test environment
+        if: always()
+        run: docker compose -f compose.test.yaml down

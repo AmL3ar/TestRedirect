@@ -1,0 +1,7 @@
+{
+  "amount": "1499.90",
+  "currency": "RUB",
+  "description": "Оплата заказа №1001",
+  "metadata": {"order_id": "1001"},
+  "webhook_url": "http://webhook:8080/webhook"
+}

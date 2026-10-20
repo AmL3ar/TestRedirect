@@ -1,0 +1,52 @@
+name: payment-processing-tests
+
+services:
+  postgres-test:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: payments
+      POSTGRES_PASSWORD: test-password
+      POSTGRES_DB: payments_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "payments", "-d", "payments_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  rabbitmq-test:
+    image: rabbitmq:4.2-management
+    hostname: rabbitmq-test
+    environment:
+      RABBITMQ_DEFAULT_USER: payments
+      RABBITMQ_DEFAULT_PASS: test-password
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://payments:test-password@postgres-test:5432/payments_test
+      RABBITMQ_URL: amqp://payments:test-password@rabbitmq-test:5672/
+      TEST_DATABASE_URL: postgresql+asyncpg://payments:test-password@postgres-test:5432/payments_test
+      TEST_RABBITMQ_URL: amqp://payments:test-password@rabbitmq-test:5672/
+      API_KEY: test-api-key-at-least-16
+      WEBHOOK_SECRET: test-webhook-secret-at-least-16
+      WEBHOOK_ALLOWED_ORIGINS: '["https://merchant.example", "http://webhook:8080"]'
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      rabbitmq-test:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - "alembic upgrade head && alembic check && ruff check app tests migrations examples && ruff format --check app tests migrations examples && mypy app && pytest -q --cov=app --cov-report=term-missing"
